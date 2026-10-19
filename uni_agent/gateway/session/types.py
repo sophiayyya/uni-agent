@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 
 if TYPE_CHECKING:
     import numpy as np
@@ -12,6 +12,20 @@ if TYPE_CHECKING:
 
 class UnsupportedMediaError(ValueError):
     """A request requires media capabilities unavailable in the current session."""
+
+
+class AgentContext(TypedDict):
+    """Harness identity within an outer Gateway session, independent of backend routing.
+
+    IDs are opaque and scoped by ``provider`` and the harness ``session_id``.
+    ``agent_id=None`` denotes the main agent; ``parent_agent_id=None`` means
+    no explicit parent was supplied, not necessarily that the parent is main.
+    """
+
+    provider: str
+    session_id: str
+    agent_id: str | None
+    parent_agent_id: str | None
 
 
 class InternalGenerationRequest(TypedDict):
@@ -25,6 +39,7 @@ class InternalGenerationRequest(TypedDict):
     messages: list[dict[str, Any]]
     tools: list[dict[str, Any]] | None
     sampling_params: dict[str, Any]
+    agent_context: NotRequired[AgentContext]
 
 
 @dataclass
