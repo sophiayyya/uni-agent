@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
     import numpy as np
@@ -28,7 +28,13 @@ class AgentContext(TypedDict):
     parent_agent_id: str | None
 
 
-class InternalGenerationRequest(TypedDict):
+class _InternalGenerationRequestRequired(TypedDict):
+    messages: list[dict[str, Any]]
+    tools: list[dict[str, Any]] | None
+    sampling_params: dict[str, Any]
+
+
+class InternalGenerationRequest(_InternalGenerationRequestRequired, total=False):
     """Lowered request consumed by GatewaySession.run_generation.
 
     Provider adapters lower OpenAI / Anthropic wire requests into this
@@ -36,10 +42,7 @@ class InternalGenerationRequest(TypedDict):
     provider-neutral block model.
     """
 
-    messages: list[dict[str, Any]]
-    tools: list[dict[str, Any]] | None
-    sampling_params: dict[str, Any]
-    agent_context: NotRequired[AgentContext]
+    agent_context: AgentContext
 
 
 @dataclass

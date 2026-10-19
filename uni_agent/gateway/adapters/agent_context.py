@@ -17,7 +17,7 @@ def agent_context_from_headers(headers: Mapping[str, str]) -> AgentContext | Non
         raw = headers.get(name)
         if raw is None:
             return None
-        if len(raw) > 512 or any(ord(char) < 32 or ord(char) == 127 for char in raw):
+        if len(raw) > 512 or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in raw):
             raise MalformedRequestError(f"Invalid {name} header")
         return raw.strip() or None
 

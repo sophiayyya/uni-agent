@@ -25,7 +25,9 @@ def _headers(agent="child", parent=None, session="claude-session"):
     return headers
 
 
-@pytest.mark.parametrize("agent, parent", [(None, None), ("a", None), ("a", "claude-session"), ("c", "a")])
+@pytest.mark.parametrize(
+    "agent, parent", [(None, None), ("a", None), ("a", "claude-session"), ("c", "a"), ("a\xa0b", None), ("a\xff", None)]
+)
 def test_header_identity_preserves_explicit_parent(agent, parent):
     headers = Headers({key.upper(): value for key, value in _headers(agent, parent).items()})
     assert agent_context_from_headers(headers) == {
@@ -56,6 +58,12 @@ def test_unrelated_or_empty_headers_have_no_agent_context(headers):
         _headers(None, "a"),
         _headers("a\n"),
         _headers("a\x7f"),
+        _headers("a\x80"),
+        _headers("a\x81"),
+        _headers("a\x85"),
+        _headers("a\x9f"),
+        _headers(session="s\x81"),
+        _headers(parent="p\x81"),
         _headers("a" * 513),
     ],
 )
@@ -117,11 +125,17 @@ async def test_http_identity_reaches_backend_and_trajectory(endpoint, stream):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("endpoint", ["messages", "chat/completions", "responses"])
-async def test_invalid_identity_returns_provider_error_before_generation(endpoint):
+@pytest.mark.parametrize("headers", [_headers("a", "a"), _headers("a\x81")])
+async def test_invalid_identity_returns_provider_error_before_generation(endpoint, headers):
     backend = ContextBackend([])
     actor = await _actor(backend)
+    payload = {"model": "test"}
+    payload["input" if endpoint == "responses" else "messages"] = [{"role": "user", "content": "hello"}]
+    if endpoint == "messages":
+        payload["max_tokens"] = 8
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=actor._app), base_url="http://test") as client:
-        response = await client.post(f"/sessions/rollout/v1/{endpoint}", json={}, headers=_headers("a", "a"))
+        raw_headers = [(name.encode("ascii"), value.encode("latin-1")) for name, value in headers.items()]
+        response = await client.post(f"/sessions/rollout/v1/{endpoint}", json=payload, headers=raw_headers)
     assert response.status_code == 400
     assert "error" in response.json()
     assert backend.calls == []
